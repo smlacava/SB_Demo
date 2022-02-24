@@ -23,10 +23,13 @@ class SpoofBuster():
             # net = MobileNet(n_classes=2)
             # net = tf.keras.models.load_model(os.path.dirname(os.path.realpath(__file__))+"\GreenBit")
             try:
-              net = load_model(os.path.dirname(os.path.realpath(__file__)) + ".\GreenBit\my_model.h5")
+              try:
+                net = load_model(os.path.dirname(os.path.realpath(__file__)) + ".\GreenBit\my_model.h5")
+              except:
+                net = load_model(".\GreenBit\my_model.h5")
             except:
-              net = load_model(".\GreenBit\my_model.h5")
-            self.set_model(net)
+              net = None
+        self.set_model(net)
         self._extractor = self.set_extractor(extractor)
         self.set_live_label(live_label)
         if extractor == 'mindtct':
