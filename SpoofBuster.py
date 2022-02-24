@@ -29,6 +29,8 @@ class SpoofBuster():
                 net = load_model(".\GreenBit\my_model.h5")
             except:
               net = None
+        elif isinstance(net, str):
+            net = load_model(net)
         self.set_model(net)
         self._extractor = self.set_extractor(extractor)
         self.set_live_label(live_label)
