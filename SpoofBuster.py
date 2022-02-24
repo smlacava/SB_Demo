@@ -108,6 +108,7 @@ class SpoofBuster():
             bin_img = bytearray(open(fname + '.brw', 'rb').read())
             bin_img = np.reshape(bin_img, (500, 500))
             plt.imshow(bin_img, alpha=0.5, cmap='gray')
+            plt.axis('off')
             plt.show()
         return round(tot_score / count, 4)
 
