@@ -18,18 +18,22 @@ from PIL import Image
 import imageio
 from MobileNet import MobileNet
 import platform
+from keras.models import load_model
     
 for name in logging.Logger.manager.loggerDict.keys():
     logging.getLogger(name).setLevel(logging.CRITICAL)
 
 class SpoofBuster():
-  def __init__(self, net=None, extractor='mindtct'):
+  def __init__(self, net=None, extractor='mindtct', live_label=1):
     if net is None:
       #net = MobileNet(n_classes=2)
-      net = tf.keras.models.load_model("GreenBit")
-    self.set_model(net)
+      #net = tf.keras.models.load_model(os.path.dirname(os.path.realpath(__file__))+"\GreenBit")
+      net = load_model(os.path.dirname(os.path.realpath(__file__))+"\GreenBit\my_model.h5")
+      self.set_model(net)
     self._extractor=self.set_extractor(extractor)
-    os.chmod(os.path.dirname(__file__)+'/mindtct', 0o755)
+    self.set_live_label(live_label)
+    if extractor=='mindtct':
+      os.chmod(os.path.dirname(__file__)+'/mindtct', 0o755)
 
   def _load(self, filename, patch_size):
     np_image = Image.open(filename)
@@ -38,15 +42,22 @@ class SpoofBuster():
     np_image = np.expand_dims(np_image, axis=0)
     return np_image
 
+  def set_live_label(self, label=1):
+    self._live_label = label
+
   def spoof_detection(self, fname, view=False, min_quality=0.0):
     """
     This method evaluates the spoofness probability of a single fingerprint, 
     eventually showing which minutiae are considered as live and as spoof in 
     detail.
     """
-    im = Image.open(fname).resize((500, 500))
-    fname = [x for x in fname.split(".")][0]
-    im.convert('L').save(fname+".jpeg", "JPEG")
+    if isinstance(fname, str):
+      im = Image.open(fname).resize((500, 500))
+      fname = [x for x in fname.split(".")][0]
+    else:
+      im = fname
+      fname = "tmp"
+    im.convert('L').save(fname + ".jpeg", "JPEG")
     self.extract_minutiae(fname+".jpeg")
     [start_xs, end_xs, start_ys, end_ys, angle, qualities, types] = self.read_minutiae(fname +".min")
     img = cv2.imread(fname+".jpeg", cv2.IMREAD_GRAYSCALE)
@@ -87,10 +98,9 @@ class SpoofBuster():
       x = np.delete(x, to_del)
       y = start_ys
       y = np.delete(y, to_del)
-      spoof_mask = [s<0.5 for s in scores]
+      spoof_mask, live_mask = self._compute_masks(scores)
       plt.plot(x[spoof_mask], y[spoof_mask], 's', markeredgecolor = 'red', 
                markerfacecolor = 'None')
-      live_mask = [s>=0.5 for s in scores]
       plt.plot(x[live_mask], y[live_mask], 'o', markeredgecolor = 'green', 
                markerfacecolor = 'None')
       bin_img = bytearray(open(fname + '.brw', 'rb').read())
@@ -98,6 +108,15 @@ class SpoofBuster():
       plt.imshow(bin_img, alpha=0.5,cmap='gray')
       plt.show()
     return round(tot_score/count, 4)
+
+  def _compute_masks(self, scores):
+    if self._live_label == 0:
+      spoof_mask = [s >= 0.5 for s in scores]
+      live_mask = [s < 0.5 for s in scores]
+    else:
+      spoof_mask = [s <= 0.5 for s in scores]
+      live_mask = [s > 0.5 for s in scores]
+    return spoof_mask, live_mask
 
   def extract_minutiae(self, fname):
     """
